@@ -1,16 +1,15 @@
-#
-# Build stage
-#
-FROM maven:3.8.3-openjdk-17 AS build
-COPY src /home/app/src
-COPY pom.xml /home/app
-RUN mvn -f /home/app/pom.xml clean package
+# Stage 1: Build Environment
+FROM eclipse-temurin:17-jdk-jammy AS builder
+WORKDIR /opt/app
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline
+COPY ./src ./src
+RUN ./mvnw clean package -DskipTests
 
-#
-# Run stage
-#
-FROM openjdk:17
-COPY --from=build /home/app/target/SpringHello-0.0.1-SNAPSHOT.jar /usr/local/lib/SpringHello-0.0.1-SNAPSHOT.jar
+# Stage 2: Runtime Environment  
+FROM eclipse-temurin:17-jre-jammy AS final
+WORKDIR /opt/app
 EXPOSE 8080
-USER 10014
-ENTRYPOINT ["java","-jar","/usr/local/lib/SpringHello-0.0.1-SNAPSHOT.jar"]
+COPY --from=builder /opt/app/target/*.jar /opt/app/app.jar
+ENTRYPOINT ["java", "-jar", "/opt/app/app.jar"]
